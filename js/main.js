@@ -491,9 +491,8 @@
     
     console.log(`Frame drawn: ${originalWidth}×${originalHeight} → ${targetWidth}×${targetHeight} at ${formatTime(video.currentTime)}`);
   }
-
-  // 다운로드 링크 생성
-  function createDownloadLink() {
+// 다운로드 링크 생성 및 저장 (Capacitor Filesystem 사용)
+  async function createDownloadLink() {
     console.log('Creating download link...');
     
     if (canvas.width === 0 || canvas.height === 0) {
@@ -501,21 +500,19 @@
       return;
     }
     
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        showError('이미지 생성에 실패했습니다.');
-        return;
-      }
+    try {
+      // Canvas를 Blob으로 변환
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('이미지 생성 실패'));
+        }, 'image/jpeg', 0.95);
+      });
       
       console.log('Blob created:', blob.size, 'bytes');
       
-      if (currentDownloadUrl) {
-        URL.revokeObjectURL(currentDownloadUrl);
-      }
-      
-      currentDownloadUrl = URL.createObjectURL(blob);
-      downloadLink.href = currentDownloadUrl;
-      downloadLink.style.display = 'inline-block';
+      // Blob을 Base64로 변환
+      const base64Data = await blobToBase64(blob);
       
       // 파일명 생성 (모드별로 다르게)
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -525,15 +522,79 @@
         custom: 'custom-frame'
       };
       const timeString = currentMode === 'custom' ? `-${formatTime(video.currentTime).replace(':', 'm')}s` : '';
+      const filename = `${modePrefix[currentMode]}${timeString}-${timestamp}.jpg`;
       
-      downloadLink.download = `${modePrefix[currentMode]}${timeString}-${timestamp}.png`;
+      // Capacitor가 있는지 확인 (네이티브 앱)
+      if (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+        console.log('Native platform detected, using Filesystem API');
+        
+        try {
+          // Capacitor 플러그인 및 Directory 가져오기
+          const { Filesystem, Directory } = window.Capacitor.Plugins;
+          
+          console.log('Capacitor.Plugins:', window.Capacitor.Plugins);
+          console.log('Filesystem:', Filesystem);
+          console.log('Directory:', Directory);
+          
+          // 네이티브 앱: Filesystem API로 저장
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: base64Data,
+            directory: Directory.Documents,
+            recursive: true
+          });
+          
+          console.log('File saved to:', result.uri);
+          
+          alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n위치: Documents 폴더\n\n[파일 관리자] → [Documents] → [${filename}]`);
+          
+        } catch (capacitorError) {
+          console.error('Capacitor save failed:', capacitorError);
+          // Capacitor 실패 시 웹 방식으로 폴백
+          throw capacitorError;
+        }
+        
+      } else {
+        console.log('Web platform detected, using standard download');
+        // 웹 브라우저: 기존 방식
+        if (currentDownloadUrl) {
+          URL.revokeObjectURL(currentDownloadUrl);
+        }
+        
+        currentDownloadUrl = URL.createObjectURL(blob);
+        downloadLink.href = currentDownloadUrl;
+        downloadLink.download = filename;
+        downloadLink.style.display = 'inline-block';
+        
+        // 자동 다운로드 트리거
+        downloadLink.click();
+        
+        alert(`이미지 다운로드 시작!\n\n파일명: ${filename}\n\n다운로드 폴더를 확인하세요.`);
+      }
       
       if (canvasInfo) {
         canvasInfo.style.display = 'block';
       }
       
-      console.log('Download link ready');
-    }, 'image/png', 0.95);
+      console.log('Download/Save complete');
+      
+    } catch (error) {
+      console.error('Save error:', error);
+      showError('저장 실패: ' + error.message);
+    }
+  }
+  
+  // Blob을 Base64로 변환하는 헬퍼 함수
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   // 사용량 추적 함수
