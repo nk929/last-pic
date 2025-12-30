@@ -492,6 +492,7 @@
     console.log(`Frame drawn: ${originalWidth}×${originalHeight} → ${targetWidth}×${targetHeight} at ${formatTime(video.currentTime)}`);
   }
 // 다운로드 링크 생성 및 저장 (Capacitor Filesystem 사용)
+    // 다운로드 링크 생성 및 저장 (Capacitor Filesystem 사용)
   async function createDownloadLink() {
     console.log('Creating download link...');
     
@@ -529,29 +530,93 @@
         console.log('Native platform detected, using Filesystem API');
         
         try {
-          // Capacitor 플러그인 및 Directory 가져오기
-          const { Filesystem, Directory } = window.Capacitor.Plugins;
+          // Capacitor 플러그인 확인
+          const { Filesystem, Directory, Share } = window.Capacitor.Plugins;
           
           console.log('Capacitor.Plugins:', window.Capacitor.Plugins);
           console.log('Filesystem:', Filesystem);
           console.log('Directory:', Directory);
+          console.log('Share:', Share);
           
-          // 네이티브 앱: Filesystem API로 저장
-          const result = await Filesystem.writeFile({
-            path: filename,
-            data: base64Data,
-            directory: Directory.Documents,
-            recursive: true
-          });
+          // 방법 1: Downloads 폴더에 저장 시도
+          let savedUri = null;
+          try {
+            const result = await Filesystem.writeFile({
+              path: filename,
+              data: base64Data,
+              directory: Directory.DOWNLOADS || 'DOWNLOADS',
+              recursive: true
+            });
+            savedUri = result.uri;
+            console.log('File saved to Downloads:', result.uri);
+          } catch (downloadError) {
+            console.log('Downloads 저장 실패, Documents 시도:', downloadError);
+            
+            // 방법 2: Documents 폴더에 저장 시도
+            try {
+              const result = await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: Directory.Documents,
+                recursive: true
+              });
+              savedUri = result.uri;
+              console.log('File saved to Documents:', result.uri);
+            } catch (docError) {
+              console.log('Documents 저장 실패, Cache 시도:', docError);
+              
+              // 방법 3: Cache 폴더에 저장 (항상 작동)
+              const result = await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: Directory.Cache,
+                recursive: true
+              });
+              savedUri = result.uri;
+              console.log('File saved to Cache:', result.uri);
+            }
+          }
           
-          console.log('File saved to:', result.uri);
-          
-          alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n위치: Documents 폴더\n\n[파일 관리자] → [Documents] → [${filename}]`);
+          // Share API로 사용자가 저장 위치 선택하도록
+          if (Share && savedUri) {
+            try {
+              await Share.share({
+                title: 'Last Pic - 캡처된 프레임',
+                text: '프레임이 캡처되었습니다.',
+                url: savedUri,
+                dialogTitle: '이미지 저장'
+              });
+              alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n\n갤러리 또는 파일 관리자에서 확인하세요!`);
+            } catch (shareError) {
+              console.log('Share 실패, 직접 저장됨:', shareError);
+              alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n위치: ${savedUri}\n\n파일 관리자에서 확인하세요!`);
+            }
+          } else {
+            alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n위치: ${savedUri || '앱 폴더'}\n\n파일 관리자에서 확인하세요!`);
+          }
           
         } catch (capacitorError) {
           console.error('Capacitor save failed:', capacitorError);
-          // Capacitor 실패 시 웹 방식으로 폴백
-          throw capacitorError;
+          console.error('Error details:', {
+            message: capacitorError.message,
+            code: capacitorError.code,
+            stack: capacitorError.stack
+          });
+          
+          // Capacitor 완전 실패 시 웹 방식으로 폴백
+          console.log('Falling back to web download method');
+          
+          if (currentDownloadUrl) {
+            URL.revokeObjectURL(currentDownloadUrl);
+          }
+          
+          currentDownloadUrl = URL.createObjectURL(blob);
+          downloadLink.href = currentDownloadUrl;
+          downloadLink.download = filename;
+          downloadLink.style.display = 'inline-block';
+          downloadLink.click();
+          
+          alert(`이미지 다운로드가 시작되었습니다!\n\n파일: ${filename}\n\n다운로드 폴더를 확인하세요!`);
         }
         
       } else {
