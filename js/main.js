@@ -577,23 +577,14 @@
             }
           }
           
-          // Share API로 사용자가 저장 위치 선택하도록
-          if (Share && savedUri) {
-            try {
-              await Share.share({
-                title: 'Last Pic - 캡처된 프레임',
-                text: '프레임이 캡처되었습니다.',
-                url: savedUri,
-                dialogTitle: '이미지 저장'
-              });
-              alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n\n갤러리 또는 파일 관리자에서 확인하세요!`);
-            } catch (shareError) {
-              console.log('Share 실패, 직접 저장됨:', shareError);
-              alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n위치: ${savedUri}\n\n파일 관리자에서 확인하세요!`);
-            }
+                 // 저장 완료 알림 (Share API 제거)
+          if (savedUri) {
+            console.log('File saved successfully:', savedUri);
+            alert(`✅ 이미지가 저장되었습니다!\n\n📁 파일명: ${filename}\n📂 위치: 파일 관리자 → Downloads 폴더\n\n※ 파일 관리자 앱을 열어서 확인하세요!`);
           } else {
-            alert(`이미지가 저장되었습니다!\n\n파일: ${filename}\n위치: ${savedUri || '앱 폴더'}\n\n파일 관리자에서 확인하세요!`);
+            alert(`⚠️ 저장 위치를 확인할 수 없습니다.\n\n파일 관리자에서 최근 파일을 확인하세요.`);
           }
+
           
         } catch (capacitorError) {
           console.error('Capacitor save failed:', capacitorError);
