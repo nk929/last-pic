@@ -525,7 +525,34 @@
       const timeString = currentMode === 'custom' ? `-${formatTime(video.currentTime).replace(':', 'm')}s` : '';
       const filename = `${modePrefix[currentMode]}${timeString}-${timestamp}.jpg`;
       
-
+  // 모든 플랫폼에서 웹 방식 사용 (Capacitor 우회)
+      console.log('Using web download method for all platforms');
+      
+      // 기존 URL 정리
+      if (currentDownloadUrl) {
+        URL.revokeObjectURL(currentDownloadUrl);
+      }
+      
+      // Blob을 Data URL로 변환
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // 다운로드 링크 생성
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      
+      // 다운로드 실행
+      link.click();
+      
+      // 정리
+      setTimeout(() => {
+        document.body.removeChild(link);
+      }, 100);
+      
+      // 알림
+      alert(`✅ 이미지 다운로드 시작!\n\n📁 파일명: ${filename}\n📂 다운로드 폴더를 확인하세요!\n\n※ 브라우저 다운로드 알림을 확인하세요.`);
       
       if (canvasInfo) {
         canvasInfo.style.display = 'block';
