@@ -1,0 +1,57 @@
+# Last Pic - .gitignore
+
+# 개발 환경
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+*~
+
+# 에디터 설정
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 임시 파일
+*.tmp
+*.temp
+*.cache
+
+# 민감한 정보 (실제 사용 시 주의)
+config.local.js
+.env
+.env.local
+secrets.json
+
+# 빌드 결과물 (Capacitor 사용 시)
+/dist/
+/build/
+/android/
+/ios/
+node_modules/
+package-lock.json
+yarn.lock
+
+# 테스트 커버리지
+coverage/
+.nyc_output/
+
+# 백업 파일
+*.bak
+*.backup
+
+# 로컬 데이터베이스 (개발용)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS 관련
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
